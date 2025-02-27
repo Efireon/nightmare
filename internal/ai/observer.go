@@ -5,6 +5,7 @@ import (
 	"sort"
 	"time"
 
+	"nightmare/internal/common"
 	"nightmare/internal/entity"
 	"nightmare/internal/event"
 	"nightmare/internal/util"
@@ -107,7 +108,7 @@ type ObserverSystem struct {
 
 // ScareRecommendation представляет рекомендацию для испуга
 type ScareRecommendation struct {
-	ScareType  ScareEventType
+	ScareType  common.ScareEventType
 	FearTarget FearType
 	Intensity  float64
 	Position   entity.Vector2D
@@ -346,7 +347,7 @@ func (o *ObserverSystem) recordScareResponse(data event.EventData) {
 	}
 
 	// Получаем тип пугающего события
-	scareType, ok := data.Custom["scareType"].(ScareEventType)
+	scareType, ok := data.Custom["scareType"].(common.ScareEventType)
 	if !ok {
 		return
 	}
@@ -410,19 +411,19 @@ func (o *ObserverSystem) determineFearType(source interface{}) FearType {
 }
 
 // mapScareEventToFearType сопоставляет тип пугающего события с типом страха
-func (o *ObserverSystem) mapScareEventToFearType(scareType ScareEventType) FearType {
+func (o *ObserverSystem) mapScareEventToFearType(scareType common.ScareEventType) FearType {
 	switch scareType {
-	case EventAmbientSound:
+	case common.EventAmbientSound:
 		return FearIsolation
-	case EventSuddenNoise:
+	case common.EventSuddenNoise:
 		return FearSuddenNoises
-	case EventCreatureAppearance:
+	case common.EventCreatureAppearance:
 		return FearCreatures
-	case EventEnvironmentChange:
+	case common.EventEnvironmentChange:
 		return FearUnknown
-	case EventHallucination:
+	case common.EventHallucination:
 		return FearIsolation
-	case EventWhisper:
+	case common.EventWhisper:
 		return FearIsolation
 	default:
 		return FearUnknown
@@ -649,6 +650,41 @@ func (o *ObserverSystem) getEffectiveFearTypes() []FearType {
 }
 
 // generateRecommendationForFearType генерирует рекомендацию для типа страха
+func (o *ObserverSystem) chooseScareTypeForFearType(fearType FearType) common.ScareEventType {
+	switch fearType {
+	case FearDarkness:
+		return common.EventEnvironmentChange
+	case FearCreatures:
+		return common.EventCreatureAppearance
+	case FearSuddenNoises:
+		return common.EventSuddenNoise
+	case FearIsolation:
+		return common.EventWhisper
+	case FearChasing:
+		return common.EventCreatureAppearance
+	case FearGore:
+		return common.EventHallucination
+	case FearClaustrophobia:
+		return common.EventEnvironmentChange
+	case FearOpenSpaces:
+		return common.EventCreatureAppearance
+	case FearUnknown:
+		// Выбираем случайный тип события
+		eventTypes := []common.ScareEventType{
+			common.EventAmbientSound,
+			common.EventSuddenNoise,
+			common.EventCreatureAppearance,
+			common.EventEnvironmentChange,
+			common.EventHallucination,
+			common.EventWhisper,
+		}
+		return eventTypes[o.random.RangeInt(0, len(eventTypes))]
+	default:
+		return common.EventAmbientSound
+	}
+}
+
+// Fix 3: Implement the missing generateRecommendationForFearType method
 func (o *ObserverSystem) generateRecommendationForFearType(fearType FearType) ScareRecommendation {
 	// Выбираем тип пугающего события на основе типа страха
 	scareType := o.chooseScareTypeForFearType(fearType)
@@ -677,41 +713,6 @@ func (o *ObserverSystem) generateRecommendationForFearType(fearType FearType) Sc
 		Position:   o.player.Position, // По умолчанию рядом с игроком
 		Timing:     timing,
 		Priority:   priority,
-	}
-}
-
-// chooseScareTypeForFearType выбирает тип пугающего события для типа страха
-func (o *ObserverSystem) chooseScareTypeForFearType(fearType FearType) ScareEventType {
-	switch fearType {
-	case FearDarkness:
-		return EventEnvironmentChange
-	case FearCreatures:
-		return EventCreatureAppearance
-	case FearSuddenNoises:
-		return EventSuddenNoise
-	case FearIsolation:
-		return EventWhisper
-	case FearChasing:
-		return EventCreatureAppearance
-	case FearGore:
-		return EventHallucination
-	case FearClaustrophobia:
-		return EventEnvironmentChange
-	case FearOpenSpaces:
-		return EventCreatureAppearance
-	case FearUnknown:
-		// Выбираем случайный тип события
-		eventTypes := []ScareEventType{
-			EventAmbientSound,
-			EventSuddenNoise,
-			EventCreatureAppearance,
-			EventEnvironmentChange,
-			EventHallucination,
-			EventWhisper,
-		}
-		return eventTypes[o.random.RangeInt(0, len(eventTypes))]
-	default:
-		return EventAmbientSound
 	}
 }
 
