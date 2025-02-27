@@ -5,7 +5,7 @@ import (
 	"math/rand"
 
 	"nightmare/internal/ai"
-	"nightmare/internal/entity"
+	"nightmare/internal/common"
 	"nightmare/internal/util"
 )
 
@@ -35,6 +35,17 @@ const (
 	ZoneTransition                  // Переходная зона
 )
 
+// Zone представляет зону в мире
+type Zone struct {
+	Type        ZoneType
+	Position    common.Vector2D
+	Radius      float64
+	Density     float64
+	Theme       ThemeType
+	Corruption  float64
+	Connections []int // Индексы зон, с которыми соединена
+}
+
 // Generator отвечает за процедурную генерацию мира
 type Generator struct {
 	world  *World
@@ -50,21 +61,8 @@ type Generator struct {
 	zones     []Zone
 	roomCount int
 
-	creatureFactory *entity.CreatureGenerator
-
 	observer      *ai.ObserverSystem
 	fearInfluence map[ai.FearType]ThemeType
-}
-
-// Zone представляет зону в мире
-type Zone struct {
-	Type        ZoneType
-	Position    entity.Vector2D
-	Radius      float64
-	Density     float64
-	Theme       ThemeType
-	Corruption  float64
-	Connections []int // Индексы зон, с которыми соединена
 }
 
 // NewGenerator создает новый генератор мира
@@ -82,8 +80,6 @@ func NewGenerator(world *World, width, height int) *Generator {
 
 		zones:     []Zone{},
 		roomCount: 0,
-
-		creatureFactory: entity.NewCreatureGenerator(),
 
 		observer: nil,
 		fearInfluence: map[ai.FearType]ThemeType{
@@ -187,10 +183,11 @@ func (g *Generator) generateBaseTerrain() {
 			// Создаем тайл
 			g.world.Tiles[y][x] = Tile{
 				Type:       tileType,
+				Position:   common.ConvertPosition(float64(x), float64(y)),
 				Elevation:  elevation,
 				Moisture:   moisture,
 				Corruption: corruption,
-				Objects:    []WorldObject{},
+				Objects:    []common.WorldObject{},
 			}
 		}
 	}
@@ -272,43 +269,43 @@ func (g *Generator) applyCorruptionSpot(corruptionMap [][]float64, cx, cy int, r
 }
 
 // determineTileType определяет тип тайла на основе характеристик местности
-func (g *Generator) determineTileType(elevation, moisture, density, corruption float64) TileType {
+func (g *Generator) determineTileType(elevation, moisture, density, corruption float64) common.TileType {
 	// Если уровень коррупции высокий, используем искаженную местность
 	if corruption > 0.7 {
-		return TileCorrupted
+		return common.TileCorrupted
 	}
 
 	// Вода в низинах с высокой влажностью
 	if elevation < 0.3 && moisture > 0.6 {
 		if moisture > 0.8 {
-			return TileWater
+			return common.TileWater
 		}
-		return TileSwamp
+		return common.TileSwamp
 	}
 
 	// Равнины и леса
 	if elevation < 0.6 {
 		if density > 0.7 {
-			return TileDenseForest
+			return common.TileDenseForest
 		}
 		if density > 0.4 {
-			return TileForest
+			return common.TileForest
 		}
-		return TileGrass
+		return common.TileGrass
 	}
 
 	// Скалы и горы
 	if elevation > 0.8 {
-		return TileRocks
+		return common.TileRocks
 	}
 
 	// Тропинки
 	if 0.45 < density && density < 0.55 {
-		return TilePath
+		return common.TilePath
 	}
 
 	// По умолчанию - трава
-	return TileGrass
+	return common.TileGrass
 }
 
 // generateZones генерирует зоны мира
@@ -322,7 +319,7 @@ func (g *Generator) generateZones() {
 	// Генерируем безопасную зону в центре
 	g.zones = append(g.zones, Zone{
 		Type:        ZoneSafe,
-		Position:    entity.Vector2D{X: float64(g.width) / 2, Y: float64(g.height) / 2},
+		Position:    common.ConvertPosition(float64(g.width)/2, float64(g.height)/2),
 		Radius:      15.0 + g.random.Float64()*10.0,
 		Density:     0.2 + g.random.Float64()*0.3,
 		Theme:       g.mainTheme,
@@ -360,7 +357,7 @@ func (g *Generator) generateZones() {
 		// Создаем зону
 		zone := Zone{
 			Type:        zoneType,
-			Position:    entity.Vector2D{X: x, Y: y},
+			Position:    common.ConvertPosition(x, y),
 			Radius:      10.0 + g.random.Float64()*20.0,
 			Density:     0.3 + g.random.Float64()*0.5,
 			Theme:       theme,
@@ -483,8 +480,8 @@ func (g *Generator) applyThemeToTile(tile *Tile, theme ThemeType, factor float64
 	case ThemeDecay:
 		// Увеличиваем влажность, создаем болота
 		tile.Moisture = math.Min(1.0, tile.Moisture+factor*0.3)
-		if factor > 0.5 && tile.Type == TileGrass {
-			tile.Type = TileSwamp
+		if factor > 0.5 && tile.Type == common.TileGrass {
+			tile.Type = common.TileSwamp
 		}
 
 	case ThemeBlood:
@@ -493,64 +490,64 @@ func (g *Generator) applyThemeToTile(tile *Tile, theme ThemeType, factor float64
 
 	case ThemeShadow:
 		// Увеличиваем плотность леса
-		if tile.Type == TileGrass && factor > 0.7 {
-			tile.Type = TileForest
-		} else if tile.Type == TileForest && factor > 0.8 {
-			tile.Type = TileDenseForest
+		if tile.Type == common.TileGrass && factor > 0.7 {
+			tile.Type = common.TileForest
+		} else if tile.Type == common.TileForest && factor > 0.8 {
+			tile.Type = common.TileDenseForest
 		}
 
 	case ThemeChild:
 		// Открытые пространства с тропинками
-		if tile.Type != TileWater && tile.Type != TileSwamp && factor > 0.6 {
+		if tile.Type != common.TileWater && tile.Type != common.TileSwamp && factor > 0.6 {
 			if g.random.Float64() < 0.2 {
-				tile.Type = TilePath
+				tile.Type = common.TilePath
 			} else {
-				tile.Type = TileGrass
+				tile.Type = common.TileGrass
 			}
 		}
 
 	case ThemeHospital:
 		// Регулярная структура
-		if tile.Type != TileWater && factor > 0.7 {
+		if tile.Type != common.TileWater && factor > 0.7 {
 			x := int(tile.Position.X)
 			y := int(tile.Position.Y)
 			if (x+y)%5 == 0 {
-				tile.Type = TilePath
+				tile.Type = common.TilePath
 			}
 		}
 
 	case ThemeAncient:
 		// Каменистая местность
 		if factor > 0.7 && g.random.Float64() < 0.3 {
-			tile.Type = TileRocks
+			tile.Type = common.TileRocks
 		}
 
 	case ThemeIndustrial:
 		// Открытые пространства с тропинками
-		if tile.Type != TileWater && tile.Type != TileSwamp && factor > 0.6 {
+		if tile.Type != common.TileWater && tile.Type != common.TileSwamp && factor > 0.6 {
 			if g.random.Float64() < 0.3 {
-				tile.Type = TilePath
+				tile.Type = common.TilePath
 			}
 		}
 
 	case ThemeForest:
 		// Увеличиваем плотность леса
-		if tile.Type == TileGrass && factor > 0.4 {
-			tile.Type = TileForest
-		} else if tile.Type == TileForest && factor > 0.7 {
-			tile.Type = TileDenseForest
+		if tile.Type == common.TileGrass && factor > 0.4 {
+			tile.Type = common.TileForest
+		} else if tile.Type == common.TileForest && factor > 0.7 {
+			tile.Type = common.TileDenseForest
 		}
 
 	case ThemeVoid:
 		// Пустые пространства
-		if tile.Type != TileWater && tile.Type != TileSwamp && factor > 0.6 {
-			tile.Type = TileGrass
+		if tile.Type != common.TileWater && tile.Type != common.TileSwamp && factor > 0.6 {
+			tile.Type = common.TileGrass
 		}
 	}
 
 	// Если уровень коррупции высокий, используем искаженную местность
 	if tile.Corruption > 0.7 {
-		tile.Type = TileCorrupted
+		tile.Type = common.TileCorrupted
 	}
 }
 
@@ -569,7 +566,7 @@ func (g *Generator) generatePathsBetweenZones() {
 }
 
 // generatePath генерирует путь между двумя точками
-func (g *Generator) generatePath(start, end entity.Vector2D) {
+func (g *Generator) generatePath(start, end common.Vector2D) {
 	// Шаг пути
 	stepSize := 1.0
 
@@ -621,7 +618,7 @@ func (g *Generator) generatePath(start, end entity.Vector2D) {
 					// Проверяем, что координаты в пределах мира
 					if nx >= 0 && nx < g.width && ny >= 0 && ny < g.height {
 						// Устанавливаем тип тайла в путь
-						g.world.Tiles[ny][nx].Type = TilePath
+						g.world.Tiles[ny][nx].Type = common.TilePath
 					}
 				}
 			}
@@ -632,7 +629,7 @@ func (g *Generator) generatePath(start, end entity.Vector2D) {
 // generateObjects генерирует объекты в мире
 func (g *Generator) generateObjects() {
 	// Очищаем существующие объекты
-	g.world.Objects = []WorldObject{}
+	g.world.Objects = []common.WorldObject{}
 
 	// Генерируем объекты для каждой зоны
 	for _, zone := range g.zones {
@@ -659,12 +656,12 @@ func (g *Generator) generateObjects() {
 			tile := g.world.GetTileAt(tileX, tileY)
 
 			// Пропускаем, если тайл непроходимый
-			if tile == nil || tile.Type == TileWater || tile.Type == TileSwamp {
+			if tile == nil || tile.Type == common.TileWater || tile.Type == common.TileSwamp {
 				continue
 			}
 
 			// Создаем объект в зависимости от темы зоны
-			obj := g.createObjectForTheme(zone.Theme, entity.Vector2D{X: x, Y: y})
+			obj := g.createObjectForTheme(zone.Theme, common.ConvertPosition(x, y))
 
 			// Добавляем объект в мир
 			g.world.Objects = append(g.world.Objects, obj)
@@ -676,7 +673,7 @@ func (g *Generator) generateObjects() {
 }
 
 // createObjectForTheme создает объект в соответствии с темой
-func (g *Generator) createObjectForTheme(theme ThemeType, position entity.Vector2D) WorldObject {
+func (g *Generator) createObjectForTheme(theme ThemeType, position common.Vector2D) common.WorldObject {
 	// Базовый ID объекта
 	id := g.world.nextID
 	g.world.nextID++
@@ -749,7 +746,7 @@ func (g *Generator) createObjectForTheme(theme ThemeType, position entity.Vector
 	}
 
 	// Создаем объект
-	return WorldObject{
+	return common.WorldObject{
 		ID:          id,
 		Type:        objectType,
 		Position:    position,
@@ -761,7 +758,7 @@ func (g *Generator) createObjectForTheme(theme ThemeType, position entity.Vector
 // generateCreatures генерирует существ в мире
 func (g *Generator) generateCreatures() {
 	// Очищаем существующих существ
-	g.world.Entities = []*entity.Entity{}
+	g.world.Entities = []*Entity{}
 
 	// Генерируем существ для каждой зоны
 	for _, zone := range g.zones {
@@ -803,7 +800,7 @@ func (g *Generator) generateCreatures() {
 			tile := g.world.GetTileAt(tileX, tileY)
 
 			// Пропускаем, если тайл непроходимый
-			if tile == nil || tile.Type == TileWater || tile.Type == TileSwamp || tile.Type == TileRocks {
+			if tile == nil || tile.Type == common.TileWater || tile.Type == common.TileSwamp || tile.Type == common.TileRocks {
 				continue
 			}
 
@@ -811,7 +808,7 @@ func (g *Generator) generateCreatures() {
 			creatureType := g.selectCreatureType(zone.Type, zone.Theme, tile.Corruption)
 
 			// Создаем существо
-			creature := g.world.SpawnCreature(creatureType, entity.Vector2D{X: x, Y: y})
+			creature := g.world.SpawnCreature(creatureType, common.ConvertPosition(x, y))
 
 			// Настраиваем существо в зависимости от типа зоны
 			g.configureCreatureForZone(creature, zone.Type)
@@ -856,20 +853,20 @@ func (g *Generator) selectCreatureType(zoneType ZoneType, theme ThemeType, corru
 }
 
 // configureCreatureForZone настраивает существо в зависимости от типа зоны
-func (g *Generator) configureCreatureForZone(creature *entity.Entity, zoneType ZoneType) {
+func (g *Generator) configureCreatureForZone(creature *Entity, zoneType ZoneType) {
 	// Настраиваем существо в зависимости от типа зоны
 	switch zoneType {
 	case ZoneTransition:
-		creature.Behavior = entity.NewBasicCreatureBehavior()
+		creature.Behavior = NewBasicCreatureBehavior()
 
 	case ZoneExploration:
-		creature.Behavior = entity.NewPatrolBehavior()
+		creature.Behavior = NewPatrolBehavior()
 
 	case ZoneDanger:
-		creature.Behavior = entity.NewAggressiveBehavior()
+		creature.Behavior = NewAggressiveBehavior()
 
 	case ZoneNightmare:
-		creature.Behavior = entity.NewStalkerBehavior()
+		creature.Behavior = NewStalkerBehavior()
 	}
 }
 
@@ -914,12 +911,12 @@ func (g *Generator) modifyWorldForFearType(fearType ai.FearType, intensity float
 		radius := 10.0 + g.random.Float64()*20.0
 
 		// Применяем тему к области
-		g.applyThemeToArea(entity.Vector2D{X: x, Y: y}, radius, theme, intensity)
+		g.applyThemeToArea(common.ConvertPosition(x, y), radius, theme, intensity)
 	}
 }
 
 // applyThemeToArea применяет тему к области
-func (g *Generator) applyThemeToArea(position entity.Vector2D, radius float64, theme ThemeType, intensity float64) {
+func (g *Generator) applyThemeToArea(position common.Vector2D, radius float64, theme ThemeType, intensity float64) {
 	radiusSq := radius * radius
 
 	// Модифицируем тайлы в радиусе
