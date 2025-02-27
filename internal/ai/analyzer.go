@@ -6,17 +6,18 @@ import (
 	"sort"
 	"time"
 
+	"nightmare/internal/common"
 	"nightmare/internal/entity"
 )
 
-// PlayerPattern представляет шаблон поведения игрока
+// PlayerPattern represents a player behavior pattern
 type PlayerPattern struct {
 	Name        string
 	Description string
 	Weight      float64
 }
 
-// MovementAnalysis содержит результаты анализа передвижения игрока
+// MovementAnalysis contains the results of player movement analysis
 type MovementAnalysis struct {
 	AverageSpeed     float64
 	DirectionChanges int
@@ -25,35 +26,35 @@ type MovementAnalysis struct {
 	PreferredAreas   []entity.Vector2D
 }
 
-// InteractionAnalysis содержит результаты анализа взаимодействий
+// InteractionAnalysis contains the results of interaction analysis
 type InteractionAnalysis struct {
 	InteractionRate       float64
 	PreferredInteractions map[string]int
-	ResponseToScareEvents map[ScareEventType]float64
+	ResponseToScareEvents map[common.ScareEventType]float64 // Changed to use common.ScareEventType
 	HealthLossRate        float64
 	SanityLossRate        float64
 }
 
-// Analyzer анализирует поведение игрока
+// Analyzer analyzes player behavior
 type Analyzer struct {
 	player              *entity.Player
 	detectedPatterns    []PlayerPattern
 	movementAnalysis    MovementAnalysis
 	interactionAnalysis InteractionAnalysis
-	scareHistory        []ScareEvent
+	scareHistory        []common.ScareEvent // Changed to use common.ScareEvent
 	lastAnalysisTime    time.Time
 
 	positionHistory []entity.Vector2D
-	areaVisits      map[string]int  // ключ: "x,y" для сектора, значение: количество посещений
-	sectorsExplored map[string]bool // ключ: "x,y" для сектора, значение: был ли исследован
+	areaVisits      map[string]int  // key: "x,y" for sector, value: number of visits
+	sectorsExplored map[string]bool // key: "x,y" for sector, value: whether explored
 
-	sectorSize float64     // размер одного сектора для анализа
-	heatmap    [][]float64 // тепловая карта посещений
+	sectorSize float64     // size of one sector for analysis
+	heatmap    [][]float64 // visit heatmap
 
-	scareResponses map[ScareEventType][]float64 // реакции на испуг
+	scareResponses map[common.ScareEventType][]float64 // Changed to use common.ScareEventType
 }
 
-// NewAnalyzer создает новый анализатор
+// NewAnalyzer creates a new analyzer
 func NewAnalyzer(player *entity.Player) *Analyzer {
 	return &Analyzer{
 		player:           player,
@@ -68,52 +69,52 @@ func NewAnalyzer(player *entity.Player) *Analyzer {
 		interactionAnalysis: InteractionAnalysis{
 			InteractionRate:       0,
 			PreferredInteractions: make(map[string]int),
-			ResponseToScareEvents: make(map[ScareEventType]float64),
+			ResponseToScareEvents: make(map[common.ScareEventType]float64), // Changed to use common.ScareEventType
 			HealthLossRate:        0,
 			SanityLossRate:        0,
 		},
-		scareHistory:     []ScareEvent{},
+		scareHistory:     []common.ScareEvent{}, // Changed to use common.ScareEvent
 		lastAnalysisTime: time.Now(),
 		positionHistory:  []entity.Vector2D{},
 		areaVisits:       make(map[string]int),
 		sectorsExplored:  make(map[string]bool),
-		sectorSize:       5.0,                   // Размер сектора в единицах мира
-		heatmap:          make([][]float64, 50), // 50x50 тепловая карта
-		scareResponses:   make(map[ScareEventType][]float64),
+		sectorSize:       5.0,                                       // World unit sector size
+		heatmap:          make([][]float64, 50),                     // 50x50 heatmap
+		scareResponses:   make(map[common.ScareEventType][]float64), // Changed to use common.ScareEventType
 	}
 }
 
-// AnalyzePlayer проводит комплексный анализ поведения игрока
+// AnalyzePlayer performs comprehensive analysis of player behavior
 func (a *Analyzer) AnalyzePlayer() {
-	// Записываем текущую позицию игрока
+	// Record current player position
 	a.recordPlayerPosition()
 
-	// Анализируем перемещения
+	// Analyze movements
 	a.analyzeMovement()
 
-	// Анализируем взаимодействия
+	// Analyze interactions
 	a.analyzeInteractions()
 
-	// Обновляем тепловую карту
+	// Update heatmap
 	a.updateHeatmap()
 
-	// Определяем шаблоны поведения
+	// Detect behavior patterns
 	a.detectPatterns()
 
-	// Обновляем время последнего анализа
+	// Update last analysis time
 	a.lastAnalysisTime = time.Now()
 }
 
-// recordPlayerPosition записывает текущую позицию игрока
+// recordPlayerPosition records the current player position
 func (a *Analyzer) recordPlayerPosition() {
 	a.positionHistory = append(a.positionHistory, a.player.Position)
 
-	// Ограничиваем размер истории
+	// Limit history size
 	if len(a.positionHistory) > 1000 {
 		a.positionHistory = a.positionHistory[len(a.positionHistory)-1000:]
 	}
 
-	// Обновляем посещения секторов
+	// Update sector visits
 	sectorX := int(a.player.Position.X / a.sectorSize)
 	sectorY := int(a.player.Position.Y / a.sectorSize)
 	sectorKey := makeKey(sectorX, sectorY)
@@ -122,26 +123,26 @@ func (a *Analyzer) recordPlayerPosition() {
 	a.sectorsExplored[sectorKey] = true
 }
 
-// makeKey создает строковый ключ из координат
+// makeKey creates a string key from coordinates
 func makeKey(x, y int) string {
 	return fmt.Sprintf("%d,%d", x, y)
 }
 
-// analyzeMovement анализирует движение игрока
+// analyzeMovement analyzes player movement
 func (a *Analyzer) analyzeMovement() {
 	if len(a.positionHistory) < 2 {
 		return
 	}
 
-	// Вычисляем среднюю скорость
+	// Calculate average speed
 	totalDistance := 0.0
 	directionChanges := 0
 	for i := 1; i < len(a.positionHistory); i++ {
-		// Расстояние между последовательными точками
+		// Distance between consecutive points
 		dist := distance(a.positionHistory[i-1], a.positionHistory[i])
 		totalDistance += dist
 
-		// Изменения направления
+		// Direction changes
 		if i > 1 {
 			prev := a.positionHistory[i-2]
 			curr := a.positionHistory[i-1]
@@ -150,13 +151,13 @@ func (a *Analyzer) analyzeMovement() {
 			dir1 := math.Atan2(curr.Y-prev.Y, curr.X-prev.X)
 			dir2 := math.Atan2(next.Y-curr.Y, next.X-curr.X)
 
-			// Нормализуем разницу углов
+			// Normalize angle difference
 			diff := math.Abs(dir2 - dir1)
 			if diff > math.Pi {
 				diff = 2*math.Pi - diff
 			}
 
-			// Считаем изменение направления, если угол больше порогового значения
+			// Count direction change if angle is greater than threshold
 			if diff > math.Pi/4 {
 				directionChanges++
 			}
@@ -164,23 +165,23 @@ func (a *Analyzer) analyzeMovement() {
 		}
 	}
 
-	// Обновляем результаты анализа
+	// Update analysis results
 	a.movementAnalysis.AverageSpeed = totalDistance / float64(len(a.positionHistory)-1)
 	a.movementAnalysis.DirectionChanges = directionChanges
 
-	// Вычисляем площадь исследованной области
+	// Calculate explored area
 	a.movementAnalysis.ExplorationArea = float64(len(a.sectorsExplored)) * (a.sectorSize * a.sectorSize)
 
-	// Находим предпочитаемые области (наиболее посещаемые секторы)
+	// Find preferred areas
 	a.findPreferredAreas()
 
-	// Вычисляем повторяемость пути
+	// Calculate path repetition
 	a.calculatePathRepetition()
 }
 
-// analyzeInteractions анализирует взаимодействия игрока
+// analyzeInteractions analyzes player interactions
 func (a *Analyzer) analyzeInteractions() {
-	// Анализируем записи о действиях
+	// Analyze action records
 	totalActions := len(a.player.ActionLog)
 	if totalActions == 0 {
 		return
@@ -191,99 +192,99 @@ func (a *Analyzer) analyzeInteractions() {
 		if action.Action == entity.ActionInteract {
 			interactions++
 
-			// Добавляем тип взаимодействия, если он есть
+			// Add interaction type if present
 			if action.InteractionType != "" {
 				a.interactionAnalysis.PreferredInteractions[action.InteractionType]++
 			}
 		}
 	}
 
-	// Вычисляем частоту взаимодействий
+	// Calculate interaction frequency
 	a.interactionAnalysis.InteractionRate = float64(interactions) / float64(totalActions)
 }
 
-// RecordScareResponse записывает реакцию игрока на пугающее событие
-func (a *Analyzer) RecordScareResponse(event ScareEvent, response float64) {
-	// Записываем событие в историю
+// RecordScareResponse records player's response to a scare event
+func (a *Analyzer) RecordScareResponse(event common.ScareEvent, response float64) { // Changed to use common.ScareEvent
+	// Record event in history
 	a.scareHistory = append(a.scareHistory, event)
 
-	// Ограничиваем размер истории
+	// Limit history size
 	if len(a.scareHistory) > 50 {
 		a.scareHistory = a.scareHistory[len(a.scareHistory)-50:]
 	}
 
-	// Записываем реакцию
+	// Record response
 	if _, ok := a.scareResponses[event.Type]; !ok {
 		a.scareResponses[event.Type] = []float64{}
 	}
 	a.scareResponses[event.Type] = append(a.scareResponses[event.Type], response)
 
-	// Вычисляем среднюю реакцию
+	// Calculate average response
 	total := 0.0
 	for _, resp := range a.scareResponses[event.Type] {
 		total += resp
 	}
 	avgResponse := total / float64(len(a.scareResponses[event.Type]))
 
-	// Обновляем анализ
+	// Update analysis
 	a.interactionAnalysis.ResponseToScareEvents[event.Type] = avgResponse
 }
 
-// updateHeatmap обновляет тепловую карту посещений
+// updateHeatmap updates the visit heatmap
 func (a *Analyzer) updateHeatmap() {
-	// Инициализируем тепловую карту, если нужно
+	// Initialize heatmap if needed
 	if len(a.heatmap) == 0 || len(a.heatmap[0]) == 0 {
 		for i := range a.heatmap {
 			a.heatmap[i] = make([]float64, 50)
 		}
 	}
 
-	// Обновляем значения тепловой карты
+	// Update heatmap values
 	for key, visits := range a.areaVisits {
 		var x, y int
 		fmt.Sscanf(key, "%d,%d", &x, &y)
 
-		// Преобразуем координаты мира в координаты тепловой карты
-		heatmapX := x * 50 / 256 // Предполагаем, что мир 256x256
+		// Convert world coordinates to heatmap coordinates
+		heatmapX := x * 50 / 256 // Assuming 256x256 world
 		heatmapY := y * 50 / 256
 
-		// Проверяем, что координаты в пределах карты
+		// Check that coordinates are within the map
 		if heatmapX >= 0 && heatmapX < 50 && heatmapY >= 0 && heatmapY < 50 {
-			// Увеличиваем значение в зависимости от количества посещений
+			// Increase value based on number of visits
 			a.heatmap[heatmapY][heatmapX] = math.Min(1.0, float64(visits)/10.0)
 		}
 	}
 }
 
-// findPreferredAreas находит предпочитаемые области
+// findPreferredAreas finds preferred areas
 func (a *Analyzer) findPreferredAreas() {
-	// Очищаем предыдущие результаты
+	// Clear previous results
 	a.movementAnalysis.PreferredAreas = []entity.Vector2D{}
 
-	// Находим наиболее посещаемые секторы
+	// Find most visited sectors
 	type sectorVisit struct {
 		key    string
 		visits int
 	}
 
-	// Преобразуем карту в срез для сортировки
+	// Convert map to slice for sorting
 	visits := []sectorVisit{}
 	for key, count := range a.areaVisits {
 		visits = append(visits, sectorVisit{key: key, visits: count})
 	}
 
-	// Сортируем по убыванию количества посещений
+	// Sort by descending number of visits
 	sort.Slice(visits, func(i, j int) bool {
 		return visits[i].visits > visits[j].visits
 	})
 
-	// Берем топ-5 или меньше
+	// Take top-5 or fewer
 	count := min(5, len(visits))
 	for i := 0; i < count; i++ {
 		var x, y int
 		fmt.Sscanf(visits[i].key, "%d,%d", &x, &y)
 
-		// Преобразуем координаты сектора в координаты мира
+		// Convert sector coordinates to world coordinates
 		worldX := float64(x)*a.sectorSize + a.sectorSize/2
 		worldY := float64(y)*a.sectorSize + a.sectorSize/2
 
@@ -292,7 +293,7 @@ func (a *Analyzer) findPreferredAreas() {
 	}
 }
 
-// calculatePathRepetition вычисляет повторяемость пути
+// calculatePathRepetition calculates path repetition
 func (a *Analyzer) calculatePathRepetition() {
 	totalSectors := len(a.sectorsExplored)
 	if totalSectors == 0 {
@@ -300,102 +301,102 @@ func (a *Analyzer) calculatePathRepetition() {
 		return
 	}
 
-	// Количество посещений каждого сектора
+	// Count visits for each sector
 	totalVisits := 0
 	for _, count := range a.areaVisits {
 		totalVisits += count
 	}
 
-	// Вычисляем среднее количество посещений на сектор
+	// Calculate average visits per sector
 	avgVisits := float64(totalVisits) / float64(totalSectors)
 
-	// Повторяемость - отношение среднего количества посещений к ожидаемому (1)
+	// Repetition - ratio of average visits to expected (1)
 	a.movementAnalysis.PathRepetition = math.Max(0, avgVisits-1)
 }
 
-// detectPatterns определяет шаблоны поведения игрока
+// detectPatterns detects player behavior patterns
 func (a *Analyzer) detectPatterns() {
-	// Очищаем предыдущие результаты
+	// Clear previous results
 	a.detectedPatterns = []PlayerPattern{}
 
-	// Анализируем на основе передвижения
+	// Analyze based on movement
 	a.detectMovementPatterns()
 
-	// Анализируем на основе взаимодействий
+	// Analyze based on interactions
 	a.detectInteractionPatterns()
 
-	// Анализируем на основе реакций на испуг
+	// Analyze based on fear responses
 	a.detectFearResponsePatterns()
 
-	// Сортируем шаблоны по весу
+	// Sort patterns by weight
 	sort.Slice(a.detectedPatterns, func(i, j int) bool {
 		return a.detectedPatterns[i].Weight > a.detectedPatterns[j].Weight
 	})
 }
 
-// detectMovementPatterns определяет шаблоны передвижения
+// detectMovementPatterns detects movement patterns
 func (a *Analyzer) detectMovementPatterns() {
-	// Исследователь - много исследует, мало повторяется
+	// Explorer - explores a lot, repeats little
 	if a.movementAnalysis.ExplorationArea > 500 && a.movementAnalysis.PathRepetition < 2 {
 		a.addPattern(PlayerPattern{
 			Name:        "explorer",
-			Description: "Игрок активно исследует мир, не задерживаясь на одном месте",
+			Description: "Player actively explores the world without lingering in one place",
 			Weight:      0.8 - (a.movementAnalysis.PathRepetition / 10),
 		})
 	}
 
-	// Осторожный - медленно двигается, много меняет направление
+	// Cautious - moves slowly, changes direction often
 	if a.movementAnalysis.AverageSpeed < 1.5 && a.movementAnalysis.DirectionChanges > 30 {
 		a.addPattern(PlayerPattern{
 			Name:        "cautious",
-			Description: "Игрок осторожен, медленно двигается и часто меняет направление",
+			Description: "Player is cautious, moves slowly and changes direction often",
 			Weight:      0.9 - (a.movementAnalysis.AverageSpeed / 3),
 		})
 	}
 
-	// Целеустремленный - быстро и целенаправленно движется
+	// Determined - moves quickly and directly
 	if a.movementAnalysis.AverageSpeed > 2.0 && a.movementAnalysis.DirectionChanges < 15 {
 		a.addPattern(PlayerPattern{
 			Name:        "determined",
-			Description: "Игрок быстро движется в выбранном направлении",
+			Description: "Player moves quickly in the chosen direction",
 			Weight:      0.7 + (a.movementAnalysis.AverageSpeed / 5),
 		})
 	}
 
-	// Нерешительный - много топчется на месте
+	// Indecisive - stays in the same place a lot
 	if a.movementAnalysis.ExplorationArea < 200 && a.movementAnalysis.PathRepetition > 3 {
 		a.addPattern(PlayerPattern{
 			Name:        "indecisive",
-			Description: "Игрок нерешителен, часто возвращается в одни и те же места",
+			Description: "Player is indecisive, often returns to the same places",
 			Weight:      0.6 + (a.movementAnalysis.PathRepetition / 5),
 		})
 	}
 }
 
-// detectInteractionPatterns определяет шаблоны взаимодействия
+// detectInteractionPatterns detects interaction patterns
 func (a *Analyzer) detectInteractionPatterns() {
-	// Интерактивный - часто взаимодействует с миром
+	// Interactive - interacts with the world often
 	if a.interactionAnalysis.InteractionRate > 0.3 {
 		a.addPattern(PlayerPattern{
 			Name:        "interactive",
-			Description: "Игрок активно взаимодействует с окружением",
+			Description: "Player actively interacts with the environment",
 			Weight:      0.7 + a.interactionAnalysis.InteractionRate,
 		})
 	}
 
-	// Пассивный - редко взаимодействует с миром
+	// Passive - rarely interacts with the world
 	if a.interactionAnalysis.InteractionRate < 0.1 {
 		a.addPattern(PlayerPattern{
 			Name:        "passive",
-			Description: "Игрок редко взаимодействует с окружением",
+			Description: "Player rarely interacts with the environment",
 			Weight:      0.6 + (0.1 - a.interactionAnalysis.InteractionRate),
 		})
 	}
 }
 
-// detectFearResponsePatterns определяет шаблоны реакции на страх
+// detectFearResponsePatterns detects fear response patterns
 func (a *Analyzer) detectFearResponsePatterns() {
-	// Общая реакция на испуг
+	// General response to fear
 	avgResponse := 0.0
 	count := 0
 
@@ -407,59 +408,59 @@ func (a *Analyzer) detectFearResponsePatterns() {
 	if count > 0 {
 		avgResponse /= float64(count)
 
-		// Устойчивый к испугу
+		// Fear resistant
 		if avgResponse < 0.3 {
 			a.addPattern(PlayerPattern{
 				Name:        "fearless",
-				Description: "Игрок слабо реагирует на пугающие события",
+				Description: "Player reacts weakly to frightening events",
 				Weight:      0.8 - avgResponse,
 			})
 		}
 
-		// Легко пугается
+		// Easily frightened
 		if avgResponse > 0.7 {
 			a.addPattern(PlayerPattern{
 				Name:        "easily_scared",
-				Description: "Игрок сильно реагирует на пугающие события",
+				Description: "Player reacts strongly to frightening events",
 				Weight:      0.7 + avgResponse,
 			})
 		}
 	}
 
-	// Реакция на конкретные типы испуга
-	if response, ok := a.interactionAnalysis.ResponseToScareEvents[EventSuddenNoise]; ok && response > 0.8 {
+	// Reaction to specific types of fear
+	if response, ok := a.interactionAnalysis.ResponseToScareEvents[common.EventSuddenNoise]; ok && response > 0.8 { // Changed to use common.EventSuddenNoise
 		a.addPattern(PlayerPattern{
 			Name:        "startles_easily",
-			Description: "Игрок особенно чувствителен к внезапным звукам",
+			Description: "Player is particularly sensitive to sudden sounds",
 			Weight:      0.7 + response,
 		})
 	}
 
-	if response, ok := a.interactionAnalysis.ResponseToScareEvents[EventCreatureAppearance]; ok && response > 0.8 {
+	if response, ok := a.interactionAnalysis.ResponseToScareEvents[common.EventCreatureAppearance]; ok && response > 0.8 { // Changed to use common.EventCreatureAppearance
 		a.addPattern(PlayerPattern{
 			Name:        "monster_phobia",
-			Description: "Игрок особенно боится встреч с существами",
+			Description: "Player is particularly afraid of encountering creatures",
 			Weight:      0.7 + response,
 		})
 	}
 }
 
-// addPattern добавляет шаблон поведения
+// addPattern adds a behavior pattern
 func (a *Analyzer) addPattern(pattern PlayerPattern) {
-	// Проверяем, есть ли уже такой шаблон
+	// Check if pattern already exists
 	for i, p := range a.detectedPatterns {
 		if p.Name == pattern.Name {
-			// Обновляем вес существующего шаблона
+			// Update weight of existing pattern
 			a.detectedPatterns[i].Weight = (a.detectedPatterns[i].Weight + pattern.Weight) / 2
 			return
 		}
 	}
 
-	// Добавляем новый шаблон
+	// Add new pattern
 	a.detectedPatterns = append(a.detectedPatterns, pattern)
 }
 
-// GetTopPatterns возвращает наиболее выраженные шаблоны поведения
+// GetTopPatterns returns the most prominent behavior patterns
 func (a *Analyzer) GetTopPatterns(count int) []PlayerPattern {
 	if count > len(a.detectedPatterns) {
 		count = len(a.detectedPatterns)
@@ -468,29 +469,29 @@ func (a *Analyzer) GetTopPatterns(count int) []PlayerPattern {
 	return a.detectedPatterns[:count]
 }
 
-// GetHeatmap возвращает тепловую карту посещений
+// GetHeatmap returns the visit heatmap
 func (a *Analyzer) GetHeatmap() [][]float64 {
 	return a.heatmap
 }
 
-// GetMovementAnalysis возвращает результаты анализа передвижения
+// GetMovementAnalysis returns the movement analysis results
 func (a *Analyzer) GetMovementAnalysis() MovementAnalysis {
 	return a.movementAnalysis
 }
 
-// GetInteractionAnalysis возвращает результаты анализа взаимодействий
+// GetInteractionAnalysis returns the interaction analysis results
 func (a *Analyzer) GetInteractionAnalysis() InteractionAnalysis {
 	return a.interactionAnalysis
 }
 
-// distance вычисляет расстояние между двумя точками
+// distance calculates the distance between two points
 func distance(a, b entity.Vector2D) float64 {
 	dx := a.X - b.X
 	dy := a.Y - b.Y
 	return math.Sqrt(dx*dx + dy*dy)
 }
 
-// min возвращает минимальное из двух чисел
+// min returns the minimum of two numbers
 func min(a, b int) int {
 	if a < b {
 		return a

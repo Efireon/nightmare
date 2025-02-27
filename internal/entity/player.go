@@ -5,10 +5,9 @@ import (
 	"time"
 
 	"nightmare/internal/common"
-	"nightmare/internal/world"
 )
 
-// Константы игрока
+// Constants for player
 const (
 	MaxHealth     = 100
 	MaxSanity     = 100
@@ -16,7 +15,7 @@ const (
 	RotationSpeed = 0.05
 )
 
-// PlayerAction представляет действие игрока
+// PlayerAction represents a player action
 type PlayerAction int
 
 const (
@@ -26,42 +25,42 @@ const (
 	ActionHide
 )
 
-// PlayerActionRecord записывает действия игрока с временной меткой
+// PlayerActionRecord records player actions with a timestamp
 type PlayerActionRecord struct {
-	Action          common.PlayerActionType
+	Action          PlayerAction // Using entity's PlayerAction, not common.PlayerActionType
 	Timestamp       time.Time
-	Position        common.Vector2D
-	InteractionType string // Добавим это поле для решения ошибки
+	Position        Vector2D // Using entity's Vector2D
+	InteractionType string
 }
 
-// Player представляет игрока
+// Player represents the player
 type Player struct {
 	Position  Vector2D
-	Direction float64 // угол в радианах
+	Direction float64 // angle in radians
 	Health    float64
 	Sanity    float64
 	Inventory []Item
-	ActionLog []PlayerActionRecord // история действий для анализа ИИ
+	ActionLog []PlayerActionRecord // action history for AI analysis
 }
 
-// Vector2D представляет 2D вектор
+// Vector2D represents a 2D vector
 type Vector2D struct {
 	X, Y float64
 }
 
-// Item представляет предмет в инвентаре
+// Item represents an item in the inventory
 type Item struct {
 	ID          int
 	Name        string
 	Description string
-	// Другие свойства предмета
+	// Other item properties
 }
 
-// NewPlayer создает нового игрока
+// NewPlayer creates a new player
 func NewPlayer() *Player {
 	return &Player{
-		Position:  Vector2D{X: 128, Y: 128}, // Начальная позиция в центре мира
-		Direction: 0,                        // Начальное направление (вперед)
+		Position:  Vector2D{X: 128, Y: 128}, // Initial position in the center of the world
+		Direction: 0,                        // Initial direction (forward)
 		Health:    MaxHealth,
 		Sanity:    MaxSanity,
 		Inventory: []Item{},
@@ -69,13 +68,13 @@ func NewPlayer() *Player {
 	}
 }
 
-// Update обновляет состояние игрока
+// Update updates the player's state
 func (p *Player) Update() {
-	// Здесь может быть логика автоматического изменения состояния игрока
-	// Например, медленное восстановление здоровья или снижение рассудка в темноте
+	// Logic for automatic changes to player state can go here
+	// For example, slow health regeneration or sanity decrease in darkness
 }
 
-// MoveForward перемещает игрока вперед
+// MoveForward moves the player forward
 func (p *Player) MoveForward() {
 	dx := MoveSpeed * math.Cos(p.Direction)
 	dy := MoveSpeed * math.Sin(p.Direction)
@@ -85,7 +84,7 @@ func (p *Player) MoveForward() {
 	p.recordAction(ActionMove)
 }
 
-// MoveBackward перемещает игрока назад
+// MoveBackward moves the player backward
 func (p *Player) MoveBackward() {
 	dx := MoveSpeed * math.Cos(p.Direction)
 	dy := MoveSpeed * math.Sin(p.Direction)
@@ -95,7 +94,7 @@ func (p *Player) MoveBackward() {
 	p.recordAction(ActionMove)
 }
 
-// TurnLeft поворачивает игрока влево
+// TurnLeft turns the player left
 func (p *Player) TurnLeft() {
 	p.Direction -= RotationSpeed
 	if p.Direction < 0 {
@@ -103,7 +102,7 @@ func (p *Player) TurnLeft() {
 	}
 }
 
-// TurnRight поворачивает игрока вправо
+// TurnRight turns the player right
 func (p *Player) TurnRight() {
 	p.Direction += RotationSpeed
 	if p.Direction >= 2*math.Pi {
@@ -111,13 +110,13 @@ func (p *Player) TurnRight() {
 	}
 }
 
-// Interact взаимодействует с миром
-func (p *Player) Interact(w *world.World) {
-	// Здесь будет логика взаимодействия с объектами мира
+// Interact interacts with the world
+func (p *Player) Interact(w interface{}) {
+	// Logic for interacting with world objects will go here
 	p.recordAction(ActionInteract)
 }
 
-// TakeDamage наносит урон игроку
+// TakeDamage damages the player
 func (p *Player) TakeDamage(amount float64) {
 	p.Health -= amount
 	if p.Health < 0 {
@@ -125,7 +124,7 @@ func (p *Player) TakeDamage(amount float64) {
 	}
 }
 
-// ReduceSanity снижает рассудок игрока
+// ReduceSanity reduces the player's sanity
 func (p *Player) ReduceSanity(amount float64) {
 	p.Sanity -= amount
 	if p.Sanity < 0 {
@@ -133,12 +132,12 @@ func (p *Player) ReduceSanity(amount float64) {
 	}
 }
 
-// AddItem добавляет предмет в инвентарь
+// AddItem adds an item to the inventory
 func (p *Player) AddItem(item Item) {
 	p.Inventory = append(p.Inventory, item)
 }
 
-// recordAction записывает действие игрока в лог
+// recordAction records a player action in the log
 func (p *Player) recordAction(action PlayerAction) {
 	record := PlayerActionRecord{
 		Action:    action,
@@ -147,8 +146,45 @@ func (p *Player) recordAction(action PlayerAction) {
 	}
 	p.ActionLog = append(p.ActionLog, record)
 
-	// Ограничиваем размер лога, чтобы не расходовать слишком много памяти
+	// Limit log size to avoid using too much memory
 	if len(p.ActionLog) > 1000 {
 		p.ActionLog = p.ActionLog[len(p.ActionLog)-1000:]
+	}
+}
+
+// ConvertToCommonAction converts the entity PlayerAction to common.PlayerActionType
+func ConvertToCommonAction(action PlayerAction) common.PlayerActionType {
+	switch action {
+	case ActionMove:
+		return common.ActionMove
+	case ActionInteract:
+		return common.ActionInteract
+	case ActionRun:
+		return common.ActionRun
+	case ActionHide:
+		return common.ActionHide
+	default:
+		return common.ActionMove
+	}
+}
+
+// ToCommonVector converts entity Vector2D to common.Vector2D
+func (v Vector2D) ToCommonVector() common.Vector2D {
+	return common.Vector2D{X: v.X, Y: v.Y}
+}
+
+// FromCommonVector converts common.Vector2D to entity Vector2D
+func FromCommonVector(v common.Vector2D) Vector2D {
+	return Vector2D{X: v.X, Y: v.Y}
+}
+
+// ToCommonRecord converts entity PlayerActionRecord to common.PlayerAction
+func (r PlayerActionRecord) ToCommonRecord() common.PlayerAction {
+	return common.PlayerAction{
+		Type:            ConvertToCommonAction(r.Action),
+		Position:        r.Position.ToCommonVector(),
+		Direction:       common.Vector2D{X: 0, Y: 0}, // Default direction
+		Timestamp:       r.Timestamp,
+		InteractionType: r.InteractionType,
 	}
 }

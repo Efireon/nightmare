@@ -750,8 +750,8 @@ func (o *ObserverSystem) GetDominantFear() FearType {
 }
 
 // normalizeProfile нормализует профиль к диапазону [0, 1]
-func normalizeProfile(profile map[interface{}]float64) {
-	// Находим минимальное и максимальное значения
+func normalizeProfile(profile map[ReactorType]float64) {
+	// Find minimum and maximum values
 	min := math.MaxFloat64
 	max := -math.MaxFloat64
 
@@ -764,12 +764,12 @@ func normalizeProfile(profile map[interface{}]float64) {
 		}
 	}
 
-	// Нормализуем значения
+	// Normalize values
 	for key, value := range profile {
 		if max > min {
 			profile[key] = (value - min) / (max - min)
 		} else {
-			profile[key] = 0.5 // Если все значения одинаковы
+			profile[key] = 0.5 // If all values are the same
 		}
 	}
 }
