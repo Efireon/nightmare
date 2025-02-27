@@ -8,6 +8,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"golang.org/x/image/font"
 
+	"nightmare/internal/common"
 	"nightmare/internal/entity"
 	"nightmare/internal/world"
 )
@@ -80,14 +81,14 @@ func (r *Renderer) initTileImages() error {
 	// В этом примере мы просто создадим цветные прямоугольники
 
 	// Создаем изображения тайлов разных типов
-	r.tileImages[world.TileGrass] = createColoredTile(color.RGBA{0, 180, 0, 255})
-	r.tileImages[world.TileForest] = createColoredTile(color.RGBA{0, 120, 0, 255})
-	r.tileImages[world.TileDenseForest] = createColoredTile(color.RGBA{0, 80, 0, 255})
-	r.tileImages[world.TilePath] = createColoredTile(color.RGBA{200, 190, 140, 255})
-	r.tileImages[world.TileRocks] = createColoredTile(color.RGBA{120, 120, 120, 255})
-	r.tileImages[world.TileWater] = createColoredTile(color.RGBA{0, 0, 180, 255})
-	r.tileImages[world.TileSwamp] = createColoredTile(color.RGBA{70, 90, 70, 255})
-	r.tileImages[world.TileCorrupted] = createColoredTile(color.RGBA{80, 0, 80, 255})
+	r.tileImages[common.TileGrass] = createColoredTile(color.RGBA{0, 180, 0, 255})
+	r.tileImages[common.TileForest] = createColoredTile(color.RGBA{0, 120, 0, 255})
+	r.tileImages[common.TileDenseForest] = createColoredTile(color.RGBA{0, 80, 0, 255})
+	r.tileImages[common.TilePath] = createColoredTile(color.RGBA{200, 190, 140, 255})
+	r.tileImages[common.TileRocks] = createColoredTile(color.RGBA{120, 120, 120, 255})
+	r.tileImages[common.TileWater] = createColoredTile(color.RGBA{0, 0, 180, 255})
+	r.tileImages[common.TileSwamp] = createColoredTile(color.RGBA{70, 90, 70, 255})
+	r.tileImages[common.TileCorrupted] = createColoredTile(color.RGBA{80, 0, 80, 255})
 
 	// В будущем здесь будет процедурная генерация текстур на основе алгоритмов
 
@@ -172,7 +173,7 @@ func (r *Renderer) DrawWorld(screen *ebiten.Image, w *world.World, player *entit
 }
 
 // drawObject отрисовывает объект мира
-func (r *Renderer) drawObject(screen *ebiten.Image, obj world.WorldObject, x, y int) {
+func (r *Renderer) drawObject(screen *ebiten.Image, obj common.WorldObject, x, y int) {
 	// В реальном проекте здесь будет отрисовка объектов
 	// В этом примере мы просто нарисуем цветные прямоугольники
 

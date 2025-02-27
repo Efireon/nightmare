@@ -7,6 +7,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 
+	"nightmare/internal/common"
 	"nightmare/internal/entity"
 	"nightmare/internal/world"
 )
@@ -146,7 +147,7 @@ func (ls *LightingSystem) updateOcclusionMap() {
 			worldY := float64(y) / ls.lightMapScale
 
 			// Проверяем коллизию
-			ls.occlusionMap[y][x] = ls.collisionSystem.CheckCollision(entity.Vector2D{X: worldX, Y: worldY})
+			ls.occlusionMap[y][x] = ls.collisionSystem.CheckCollision(common.Vector2D{X: worldX, Y: worldY})
 		}
 	}
 }

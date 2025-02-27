@@ -87,7 +87,7 @@ func NewWorld(width, height int) (*World, error) {
 		world.Tiles[y] = make([]Tile, width)
 		for x := 0; x < width; x++ {
 			world.Tiles[y][x] = Tile{
-				Type:       TileGrass,
+				Type:       common.TileGrass,
 				Position:   common.Vector2D{X: float64(x), Y: float64(y)}, // Initialize Position field
 				Elevation:  0,
 				Moisture:   0,
